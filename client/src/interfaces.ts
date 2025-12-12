@@ -61,8 +61,8 @@ export interface IExternalEvent {
 }
 
 export interface ITagNode {
-  name: string;        // Display name (e.g., "family" for "home/family")
-  fullPath: string;    // Full tag path (e.g., "home/family")
+  name: string; // Display name (e.g., "family" for "home/family")
+  fullPath: string; // Full tag path (e.g., "home/family")
   children: ITagNode[];
-  isLeaf: boolean;     // True if this is an actual tag, not just a parent folder
+  isLeaf: boolean; // True if this is an actual tag, not just a parent folder
 }

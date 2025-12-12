@@ -8,6 +8,7 @@
       :nearby-month-days="true"
       :nearby-selectable-month-days="true"
       :focusable="false"
+      :first-day-of-week="sidebar.weekStartMonday ? 1 : 0"
       @update:model-value="changeDate"
     >
     </b-datepicker>

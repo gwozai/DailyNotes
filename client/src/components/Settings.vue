@@ -16,6 +16,14 @@
                 Enable Auto-Save
               </b-switch>
             </div>
+            <div class="setting-row">
+              <b-switch v-model="localWeekStartMonday" @update:modelValue="onWeekStartMondayChange">
+                Start week on Monday
+              </b-switch>
+              <p class="setting-hint">
+                Display the calendar with Monday as the first day of the week (European style).
+              </p>
+            </div>
           </div>
 
           <div class="settings-card">
@@ -28,6 +36,23 @@
                 class="theme-option"
                 :class="{ active: localTheme === option.value }"
                 @click="localTheme = option.value as ThemePreference; onThemeChange(option.value as ThemePreference)"
+              >
+                <i :class="option.icon"></i>
+                <span>{{ option.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <p class="section-title">Text Direction</p>
+            <p class="section-hint">Choose your preferred text direction for RTL languages.</p>
+            <div class="direction-selector">
+              <button
+                v-for="option in directionOptions"
+                :key="option.value"
+                class="direction-option"
+                :class="{ active: localDirection === option.value }"
+                @click="localDirection = option.value as DirectionPreference; onDirectionChange(option.value as DirectionPreference)"
               >
                 <i :class="option.icon"></i>
                 <span>{{ option.label }}</span>
@@ -190,6 +215,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue';
 import type { IExternalCalendar } from '../interfaces';
 import { CalendarService } from '../services/calendars';
+import directionService, { type DirectionPreference } from '../services/direction';
 import { Requests } from '../services/requests';
 import type { BuefyInstance } from '../services/sharedBuefy';
 import sidebar from '../services/sidebar';
@@ -205,13 +231,21 @@ const buefy = (instance?.appContext.config.globalProperties as { $buefy?: BuefyI
 const localAutoSave = ref(false);
 const localVimMode = ref(false);
 const localTheme = ref<ThemePreference>('system');
+const localDirection = ref<DirectionPreference>('ltr');
 const localKanbanEnabled = ref(false);
 const localKanbanColumns = ref<string[]>(['todo', 'done']);
+const localWeekStartMonday = ref(false);
 
 const themeOptions = [
   { value: 'light', label: 'Light', icon: 'fas fa-sun' },
   { value: 'dark', label: 'Dark', icon: 'fas fa-moon' },
   { value: 'system', label: 'System', icon: 'fas fa-laptop' },
+];
+
+const directionOptions = [
+  { value: 'ltr', label: 'LTR', icon: 'fas fa-align-left' },
+  { value: 'rtl', label: 'RTL', icon: 'fas fa-align-right' },
+  { value: 'auto', label: 'Auto', icon: 'fas fa-magic' },
 ];
 const calendarEnabled = ref(false);
 const calendarUrl = ref('');
@@ -229,8 +263,10 @@ onMounted(() => {
   localAutoSave.value = sidebar.autoSave;
   localVimMode.value = sidebar.vimMode;
   localTheme.value = themeService.preference;
+  localDirection.value = directionService.preference;
   localKanbanEnabled.value = sidebar.kanbanEnabled;
   localKanbanColumns.value = [...sidebar.kanbanColumns];
+  localWeekStartMonday.value = sidebar.weekStartMonday;
 
   fetchCalendarUrl();
   fetchExternalCalendars();
@@ -243,6 +279,18 @@ const onAutoSaveChange = (value: boolean) => {
   // Show success toast
   buefy?.toast.open({
     message: `Auto-save ${value ? 'enabled' : 'disabled'}`,
+    type: 'is-success',
+    duration: 2000,
+  });
+};
+
+const onWeekStartMondayChange = (value: boolean) => {
+  // Update the setting immediately
+  sidebar.toggleWeekStartMonday(value);
+
+  // Show success toast
+  buefy?.toast.open({
+    message: `Week now starts on ${value ? 'Monday' : 'Sunday'}`,
     type: 'is-success',
     duration: 2000,
   });
@@ -271,6 +319,22 @@ const onThemeChange = (value: ThemePreference) => {
 
   buefy?.toast.open({
     message: `${labels[value]} activated`,
+    type: 'is-success',
+    duration: 2000,
+  });
+};
+
+const onDirectionChange = (value: DirectionPreference) => {
+  directionService.preference = value;
+
+  const labels: Record<DirectionPreference, string> = {
+    ltr: 'Left-to-Right',
+    rtl: 'Right-to-Left',
+    auto: 'Auto-detect',
+  };
+
+  buefy?.toast.open({
+    message: `${labels[value]} direction activated`,
     type: 'is-success',
     duration: 2000,
   });
@@ -589,6 +653,47 @@ const close = () => {
 }
 
 .theme-option span {
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Direction selector - same styling as theme selector */
+.direction-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.direction-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.direction-option:hover {
+  border-color: var(--border-color-light);
+  background: var(--main-bg-lighter);
+}
+
+.direction-option.active {
+  border-color: var(--accent-primary);
+  background: var(--main-bg-lighter);
+  color: var(--text-primary);
+}
+
+.direction-option i {
+  font-size: 1.5em;
+}
+
+.direction-option span {
   font-size: 0.9em;
   font-weight: 500;
 }
