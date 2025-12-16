@@ -16,6 +16,14 @@
                 Enable Auto-Save
               </b-switch>
             </div>
+            <div class="setting-row">
+              <b-switch v-model="localWeekStartMonday" @update:modelValue="onWeekStartMondayChange">
+                Start week on Monday
+              </b-switch>
+              <p class="setting-hint">
+                Display the calendar with Monday as the first day of the week (European style).
+              </p>
+            </div>
           </div>
 
           <div class="settings-card">
@@ -207,10 +215,10 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue';
 import type { IExternalCalendar } from '../interfaces';
 import { CalendarService } from '../services/calendars';
+import directionService, { type DirectionPreference } from '../services/direction';
 import { Requests } from '../services/requests';
 import type { BuefyInstance } from '../services/sharedBuefy';
 import sidebar from '../services/sidebar';
-import directionService, { type DirectionPreference } from '../services/direction';
 import themeService, { type ThemePreference } from '../services/theme';
 
 const emit = defineEmits<{
@@ -226,6 +234,7 @@ const localTheme = ref<ThemePreference>('system');
 const localDirection = ref<DirectionPreference>('ltr');
 const localKanbanEnabled = ref(false);
 const localKanbanColumns = ref<string[]>(['todo', 'done']);
+const localWeekStartMonday = ref(false);
 
 const themeOptions = [
   { value: 'light', label: 'Light', icon: 'fas fa-sun' },
@@ -257,6 +266,7 @@ onMounted(() => {
   localDirection.value = directionService.preference;
   localKanbanEnabled.value = sidebar.kanbanEnabled;
   localKanbanColumns.value = [...sidebar.kanbanColumns];
+  localWeekStartMonday.value = sidebar.weekStartMonday;
 
   fetchCalendarUrl();
   fetchExternalCalendars();
@@ -269,6 +279,18 @@ const onAutoSaveChange = (value: boolean) => {
   // Show success toast
   buefy?.toast.open({
     message: `Auto-save ${value ? 'enabled' : 'disabled'}`,
+    type: 'is-success',
+    duration: 2000,
+  });
+};
+
+const onWeekStartMondayChange = (value: boolean) => {
+  // Update the setting immediately
+  sidebar.toggleWeekStartMonday(value);
+
+  // Show success toast
+  buefy?.toast.open({
+    message: `Week now starts on ${value ? 'Monday' : 'Sunday'}`,
     type: 'is-success',
     duration: 2000,
   });

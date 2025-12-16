@@ -75,6 +75,7 @@ class SidebarSerivce {
   public vimMode: boolean = false;
   public kanbanEnabled: boolean = false;
   public kanbanColumns: string[] = ['todo', 'done'];
+  public weekStartMonday: boolean = false;
   public currentNoteId: string | null = null;
   public date: Date | null = null;
   public sidebarLoading: boolean = false;
@@ -195,6 +196,7 @@ class SidebarSerivce {
         this.vimMode = res.data.vim_mode;
         this.kanbanEnabled = res.data.kanban_enabled || false;
         this.kanbanColumns = res.data.kanban_columns || ['todo', 'done'];
+        this.weekStartMonday = res.data.week_start_monday || false;
       }
 
       if (this.selectedSearch.length && this.searchString.length) {
@@ -269,6 +271,13 @@ class SidebarSerivce {
     try {
       await Requests.put('/settings', { kanban_enabled: enabled });
       this.kanbanEnabled = enabled;
+    } catch (_e) {}
+  }
+
+  public async toggleWeekStartMonday(enabled: boolean) {
+    try {
+      await Requests.put('/settings', { week_start_monday: enabled });
+      this.weekStartMonday = enabled;
     } catch (_e) {}
   }
 

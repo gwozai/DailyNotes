@@ -1280,6 +1280,8 @@ async def sidebar_data():
     except (json.JSONDecodeError, TypeError):
         kanban_columns = ["todo", "done"]
 
+    week_start_monday = user.week_start_monday or False
+
     return (
         jsonify(
             tags=tags,
@@ -1290,6 +1292,7 @@ async def sidebar_data():
             vim_mode=vim_mode,
             kanban_enabled=kanban_enabled,
             kanban_columns=kanban_columns,
+            week_start_monday=week_start_monday,
         ),
         200,
     )
@@ -1373,6 +1376,7 @@ async def get_settings():
             vim_mode=user.vim_mode or False,
             kanban_enabled=user.kanban_enabled or False,
             kanban_columns=kanban_columns,
+            week_start_monday=user.week_start_monday or False,
         ),
         200,
     )
@@ -1414,6 +1418,9 @@ async def update_settings():
             if valid_columns:
                 user.kanban_columns = json.dumps(valid_columns)
 
+    if "week_start_monday" in req:
+        user.week_start_monday = req["week_start_monday"]
+
     db.session.add(user)
     db.session.flush()
     db.session.commit()
@@ -1432,6 +1439,7 @@ async def update_settings():
             vim_mode=user.vim_mode or False,
             kanban_enabled=user.kanban_enabled or False,
             kanban_columns=kanban_columns,
+            week_start_monday=user.week_start_monday or False,
         ),
         200,
     )

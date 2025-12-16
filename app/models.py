@@ -220,6 +220,7 @@ class User(Base):
     calendar_token = Column(String(64), unique=True, nullable=True)
     kanban_enabled = Column(Boolean, nullable=True, default=False)
     kanban_columns = Column(String(512), nullable=True, default='["todo", "done"]')
+    week_start_monday = Column(Boolean, nullable=True, default=False)
     notes = relationship("Note", lazy="dynamic", cascade="all, delete, delete-orphan")
     meta = relationship("Meta", lazy="dynamic", cascade="all, delete, delete-orphan")
     external_calendars = relationship(
