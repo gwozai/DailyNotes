@@ -221,11 +221,26 @@ class User(Base):
     kanban_enabled = Column(Boolean, nullable=True, default=False)
     kanban_columns = Column(String(512), nullable=True, default='["todo", "done"]')
     week_start_monday = Column(Boolean, nullable=True, default=False)
+    email_encrypted = Column("email", LargeBinary, nullable=True)
     notes = relationship("Note", lazy="dynamic", cascade="all, delete, delete-orphan")
     meta = relationship("Meta", lazy="dynamic", cascade="all, delete, delete-orphan")
     external_calendars = relationship(
         "ExternalCalendar", lazy="dynamic", cascade="all, delete, delete-orphan"
     )
+    auth_tokens = relationship(
+        "AuthToken", lazy="dynamic", cascade="all, delete, delete-orphan"
+    )
+
+    @hybrid_property
+    def email(self):
+        return aes_decrypt(self.email_encrypted) if self.email_encrypted else None
+
+    @email.setter
+    def email(self, value):
+        if value:
+            self.email_encrypted = aes_encrypt(value.lower().strip())
+        else:
+            self.email_encrypted = None
 
     def __repr__(self):
         return "<User {}>".format(self.uuid)
@@ -636,3 +651,58 @@ class ExternalCalendar(Base):
             "url": self.url,
             "color": self.color,
         }
+
+
+class AuthToken(Base):
+    """
+    Stores hashed tokens for password reset and magic link authentication.
+
+    Tokens are stored as SHA-256 hashes for security - the raw token is only
+    sent to the user's email and never stored.
+    """
+
+    __tablename__ = "auth_token"
+
+    uuid = Column(
+        GUID, primary_key=True, index=True, unique=True, default=lambda: uuid.uuid4()
+    )
+    user_id = Column(GUID, ForeignKey("user.uuid"), nullable=False)
+    token_hash = Column(String(128), nullable=False, index=True)
+    token_type = Column(String(32), nullable=False)  # 'password_reset' or 'magic_link'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)  # NULL if unused
+
+    user = relationship("User", back_populates="auth_tokens")
+
+    def __repr__(self):
+        return "<AuthToken {} ({})>".format(self.uuid, self.token_type)
+
+    @property
+    def is_expired(self):
+        return datetime.datetime.now(datetime.timezone.utc) > self.expires_at
+
+    @property
+    def is_used(self):
+        return self.used_at is not None
+
+
+class RateLimit(Base):
+    """
+    Tracks rate-limited actions to prevent abuse.
+
+    Stores hashed identifiers (e.g., hashed email) to track requests
+    without storing PII.
+    """
+
+    __tablename__ = "rate_limit"
+
+    uuid = Column(
+        GUID, primary_key=True, index=True, unique=True, default=lambda: uuid.uuid4()
+    )
+    identifier = Column(String(256), nullable=False, index=True)  # Hashed email
+    action_type = Column(String(32), nullable=False)  # 'password_reset' or 'magic_link'
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self):
+        return "<RateLimit {} ({})>".format(self.uuid, self.action_type)

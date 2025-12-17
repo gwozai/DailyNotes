@@ -20,3 +20,15 @@ class Config(object):
     )  # 10MB default
     ALLOWED_UPLOAD_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
     DEFAULT_TIMEZONE = os.environ.get("DEFAULT_TIMEZONE", None)
+
+    # SMTP Configuration for password reset and magic link emails
+    SMTP_HOST = os.environ.get("SMTP_HOST")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_USER = os.environ.get("SMTP_USER")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+    SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
+    SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL")
+    SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "DailyNotes")
+
+    # Application URL for email links (e.g., password reset, magic link)
+    APP_URL = os.environ.get("APP_URL", "http://localhost:8000")

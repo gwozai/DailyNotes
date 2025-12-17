@@ -747,6 +747,170 @@ The Kanban board uses CSS variables for theme compatibility:
 - `--text-primary`, `--text-muted` for text
 - `--accent-primary` for drag-over highlighting
 
+## Password Recovery & Magic Link Authentication
+
+DailyNotes supports password recovery and magic link (passwordless) sign-in via email. These features require SMTP configuration.
+
+### User Email
+
+Email is optional for users. Users can add their email in Settings to enable password recovery and magic link sign-in.
+
+**User Model Addition:**
+- `email_encrypted` (LargeBinary) - AES encrypted email address
+- `email` hybrid property for transparent encryption/decryption
+
+### Token System
+
+Tokens are used for password reset and magic link authentication.
+
+**AuthToken Model (`app/models.py`):**
+```python
+class AuthToken(Base):
+    uuid = Column(GUID, primary_key=True)
+    user_id = Column(GUID, ForeignKey("user.uuid"))
+    token_hash = Column(String(128))  # SHA-256 hash
+    token_type = Column(String(32))   # 'password_reset' or 'magic_link'
+    created_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    used_at = Column(DateTime)        # NULL if unused
+```
+
+**Token Expiration:**
+- Password reset: 1 hour
+- Magic link: 15 minutes
+
+**Security Measures:**
+- Tokens are cryptographically random (32 bytes, URL-safe)
+- Tokens are hashed with SHA-256 before storage
+- Single-use tokens (marked used after verification)
+- Short expiration times limit exposure window
+
+### Rate Limiting
+
+Prevents abuse of email-sending endpoints.
+
+**RateLimit Model (`app/models.py`):**
+```python
+class RateLimit(Base):
+    uuid = Column(GUID, primary_key=True)
+    identifier = Column(String(256))  # Hashed email
+    action_type = Column(String(32))  # 'password_reset' or 'magic_link'
+    timestamp = Column(DateTime)
+```
+
+**Configuration:**
+- 3 requests per email per hour
+- Uses hashed email identifier for privacy
+
+### Email Service
+
+**Location:** `app/email_service.py`
+
+Uses `aiosmtplib` for async email sending.
+
+**Key Methods:**
+- `send_password_reset(to_email, token)` - Sends password reset email
+- `send_magic_link(to_email, token)` - Sends magic link sign-in email
+- `is_enabled` property - Checks if SMTP is configured
+
+**Email Templates:**
+- HTML emails with inline CSS for compatibility
+- Plain text fallback included
+- Links to APP_URL-based endpoints
+
+### API Endpoints
+
+**Password Recovery:**
+- `POST /api/forgot-password` - Request password reset email
+  - Request: `{ email: string }`
+  - Always returns 200 (prevents email enumeration)
+  - Returns 429 if rate limited
+
+- `POST /api/reset-password` - Reset password with token
+  - Request: `{ token: string, password: string }`
+  - Returns 200 on success, 400 if invalid/expired
+
+**Magic Link:**
+- `POST /api/magic-link` - Request magic link email
+  - Request: `{ email: string }`
+  - Always returns 200 (prevents email enumeration)
+  - Returns 429 if rate limited
+
+- `POST /api/magic-link/verify` - Verify token and get JWT
+  - Request: `{ token: string }`
+  - Returns `{ access_token }` on success, 400 if invalid/expired
+
+**Email Management:**
+- `GET /api/profile` - Get user profile with email status
+  - Returns `{ username, has_email, email_masked }`
+
+- `PUT /api/settings/email` - Update user email
+  - Request: `{ email: string | null }`
+  - Returns 400 (invalid), 409 (duplicate), 200 (success)
+
+### Frontend Components
+
+**New Vue Components:**
+- `ForgotPassword.vue` - Email input, success message
+- `ResetPassword.vue` - New password form, token from URL query
+- `MagicLinkRequest.vue` - Email input for magic link
+- `MagicLinkVerify.vue` - Auto-verifies token, redirects on success
+
+**Routes (in Auth layout):**
+- `/auth/forgot-password`
+- `/auth/reset-password?token=...`
+- `/auth/magic-link`
+- `/auth/verify-magic-link?token=...`
+
+**Login.vue Updates:**
+- Added "Forgot password?" link
+- Added "Sign in with email" link
+
+**Settings.vue Updates:**
+- Account section for email management
+- Add/change/remove email functionality
+- Masked email display for privacy
+
+### SMTP Configuration
+
+**Environment Variables:**
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SMTP_HOST` | SMTP server hostname | None |
+| `SMTP_PORT` | SMTP server port | 587 |
+| `SMTP_USER` | SMTP username | None |
+| `SMTP_PASSWORD` | SMTP password | None |
+| `SMTP_USE_TLS` | Use TLS | true |
+| `SMTP_FROM_EMAIL` | From address | SMTP_USER |
+| `SMTP_FROM_NAME` | From name | DailyNotes |
+| `APP_URL` | Base URL for email links | http://localhost:8000 |
+
+**Config Location:** `config.py`
+
+### Token Management Module
+
+**Location:** `app/auth_tokens.py`
+
+**Key Functions:**
+- `generate_token()` - Creates cryptographically secure token
+- `hash_token(token)` - SHA-256 hash for storage
+- `check_rate_limit(email, action_type)` - Returns True if allowed
+- `record_rate_limit(email, action_type)` - Records attempt
+- `create_auth_token(user, token_type)` - Creates and stores token
+- `validate_token(raw_token, token_type)` - Validates and returns user
+- `invalidate_token(raw_token)` - Marks token as used
+- `get_user_by_email(email)` - Finds user by email
+- `cleanup_expired_tokens()` - Removes old tokens
+
+### Database Migration
+
+**File:** `migrations/versions/email_and_auth_tokens.py`
+
+Adds:
+- `email` column to `user` table (LargeBinary, encrypted)
+- `auth_token` table with foreign key to user
+- `rate_limit` table for tracking requests
+
 ## Notes for Contributors
 
 - **Python version:** Requires Python 3.8+ (async/await support)
@@ -780,6 +944,11 @@ The Kanban board uses CSS variables for theme compatibility:
 - Logout clears token from localStorage
 - Consider HTTPS for production deployment
 - Environment variables for all secrets (not hardcoded)
+- Password reset tokens hashed with SHA-256 and expire after 1 hour
+- Magic link tokens hashed with SHA-256 and expire after 15 minutes
+- Rate limiting on email endpoints (3 requests/email/hour)
+- Email enumeration prevented via consistent responses
+- User emails encrypted at rest with AES
 
 ---
 

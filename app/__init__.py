@@ -125,6 +125,11 @@ class JWTManager:
 
 jwt_manager = JWTManager(app)
 
+# Import and initialize email service
+from app.email_service import email_service
+
+email_service.init_app(app)
+
 
 def create_access_token(identity):
     """Create a JWT access token"""
