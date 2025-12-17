@@ -66,6 +66,98 @@ Joe had a vision for what DailyNotes could become before calling it a 1.0 releas
 - **Multi-user Support** — Multiple users with separate, encrypted data
 - **No Vendor Lock-in** — Export all your notes as markdown files anytime
 
+### Account Security
+
+- **[Password Recovery](#password-recovery--magic-link)** — Reset your password via email if forgotten
+- **[Magic Link Sign-in](#password-recovery--magic-link)** — Sign in with a secure email link instead of a password
+- **Email Management** — Add or update your email in Settings to enable these features
+
+## Password Recovery & Magic Link
+
+DailyNotes supports password recovery and passwordless sign-in via email. These features require SMTP configuration (see [Environment Variables](#environment-variables)).
+
+### Setting Up Your Email
+
+1. Click the **menu icon** (⋮) in the header
+2. Select **Settings**
+3. In the **Account** section, enter your email address
+4. Click **Add Email**
+
+Once configured, you can use password recovery and magic link sign-in.
+
+### Forgot Password
+
+If you forget your password:
+
+1. Go to the login page
+2. Click **Forgot password?**
+3. Enter your email address
+4. Check your email for a reset link (valid for 1 hour)
+5. Click the link and enter your new password
+
+### Magic Link Sign-in
+
+Sign in without entering your password:
+
+1. Go to the login page
+2. Click **Sign in with email**
+3. Enter your email address
+4. Check your email for a sign-in link (valid for 15 minutes)
+5. Click the link to automatically sign in
+
+### Security Features
+
+| Feature                      | Description                               |
+| ---------------------------- | ----------------------------------------- |
+| Secure tokens                | Cryptographically random, SHA-256 hashed  |
+| Rate limiting                | 3 requests per email per hour             |
+| Short expiration             | Reset: 1 hour, Magic link: 15 minutes     |
+| Single-use tokens            | Each token can only be used once          |
+| Email enumeration prevention | Same response whether email exists or not |
+| Encrypted email storage      | Email addresses encrypted at rest (AES)   |
+
+### SMTP Configuration Examples
+
+**Gmail (with App Password):**
+
+```yaml
+SMTP_HOST: smtp.gmail.com
+SMTP_PORT: 587
+SMTP_USER: your-email@gmail.com
+SMTP_PASSWORD: your-app-password # Generate at myaccount.google.com/apppasswords
+SMTP_FROM_NAME: DailyNotes
+APP_URL: https://your-dailynotes-instance.com
+```
+
+**Mailgun:**
+
+```yaml
+SMTP_HOST: smtp.mailgun.org
+SMTP_PORT: 587
+SMTP_USER: postmaster@your-domain.mailgun.org
+SMTP_PASSWORD: your-mailgun-password
+SMTP_FROM_EMAIL: noreply@your-domain.com
+APP_URL: https://your-dailynotes-instance.com
+```
+
+**Amazon SES:**
+
+```yaml
+SMTP_HOST: email-smtp.us-east-1.amazonaws.com
+SMTP_PORT: 587
+SMTP_USER: your-ses-smtp-username
+SMTP_PASSWORD: your-ses-smtp-password
+SMTP_FROM_EMAIL: noreply@your-verified-domain.com
+APP_URL: https://your-dailynotes-instance.com
+```
+
+**Important Notes:**
+
+- Gmail requires an [App Password](https://myaccount.google.com/apppasswords), not your regular password
+- The `APP_URL` must match the URL users access DailyNotes from (for email links to work)
+- If SMTP is not configured, password recovery and magic link features are automatically disabled
+- Users can still sign in with username/password even without email configured
+
 ## Themes
 
 DailyNotes supports **Light**, **Dark**, and **System** themes to match your preferred working environment.
@@ -365,6 +457,14 @@ The recommended way of running is to pull the image from [Docker Hub](https://hu
 | PUID                 | User ID (for folder permissions)                                                                                                     | None                                              |
 | PGID                 | Group ID (for folder permissions)                                                                                                    | None                                              |
 | DEFAULT_TIMEZONE     | Optional TZ name (e.g., `America/Denver`) for external ICS events; falls back to server local time                                   | None                                              |
+| SMTP_HOST            | SMTP server hostname for sending emails (password reset, magic links)                                                                | None (email features disabled)                    |
+| SMTP_PORT            | SMTP server port                                                                                                                     | 587                                               |
+| SMTP_USER            | SMTP username/email for authentication                                                                                               | None                                              |
+| SMTP_PASSWORD        | SMTP password or app-specific password                                                                                               | None                                              |
+| SMTP_USE_TLS         | Use TLS for SMTP connection (`true` or `false`)                                                                                      | true                                              |
+| SMTP_FROM_EMAIL      | From address for sent emails                                                                                                         | SMTP_USER value                                   |
+| SMTP_FROM_NAME       | Display name for sent emails                                                                                                         | DailyNotes                                        |
+| APP_URL              | Public URL of your DailyNotes instance (used in email links)                                                                         | http://localhost:8000                             |
 
 #### Volumes
 

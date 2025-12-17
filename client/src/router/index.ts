@@ -18,6 +18,14 @@ const HomeRedirect = () => import(/* webpackChunkName: "home" */ '../views/HomeR
 const Auth = () => import(/* webpackChunkName: "auth" */ '../views/Auth.vue');
 const Login = () => import(/* webpackChunkName: "auth" */ '../views/Login.vue');
 const Signup = () => import(/* webpackChunkName: "auth" */ '../views/Signup.vue');
+const ForgotPassword = () =>
+  import(/* webpackChunkName: "auth" */ '../views/ForgotPassword.vue');
+const ResetPassword = () =>
+  import(/* webpackChunkName: "auth" */ '../views/ResetPassword.vue');
+const MagicLinkRequest = () =>
+  import(/* webpackChunkName: "auth" */ '../views/MagicLinkRequest.vue');
+const MagicLinkVerify = () =>
+  import(/* webpackChunkName: "auth" */ '../views/MagicLinkVerify.vue');
 
 const routes: RouteRecordRaw[] = [
   {
@@ -35,6 +43,26 @@ const routes: RouteRecordRaw[] = [
         path: 'sign-up',
         name: 'Sign Up',
         component: Signup,
+      },
+      {
+        path: 'forgot-password',
+        name: 'Forgot Password',
+        component: ForgotPassword,
+      },
+      {
+        path: 'reset-password',
+        name: 'Reset Password',
+        component: ResetPassword,
+      },
+      {
+        path: 'magic-link',
+        name: 'Magic Link',
+        component: MagicLinkRequest,
+      },
+      {
+        path: 'verify-magic-link',
+        name: 'Verify Magic Link',
+        component: MagicLinkVerify,
       },
     ],
   },

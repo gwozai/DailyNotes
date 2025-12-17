@@ -27,6 +27,73 @@
           </div>
 
           <div class="settings-card">
+            <p class="section-title">Account</p>
+            <p class="section-hint">Manage your email for password recovery and magic link sign-in.</p>
+
+            <div v-if="emailLoading" class="email-loading">
+              <span>Loading...</span>
+            </div>
+            <div v-else-if="!hasEmail" class="email-add-section">
+              <p class="setting-hint email-info">
+                <i class="fas fa-info-circle"></i>
+                Add an email to enable password recovery and sign in with magic link.
+              </p>
+              <b-field>
+                <b-input
+                  v-model="newEmail"
+                  placeholder="Enter your email"
+                  type="email"
+                  icon="envelope"
+                  size="is-small"
+                />
+              </b-field>
+              <b-button size="is-small" type="is-primary" @click="addEmail" :loading="emailSaving">
+                Add Email
+              </b-button>
+            </div>
+            <div v-else class="email-display-section">
+              <div class="email-display">
+                <span class="email-label">Email</span>
+                <span class="email-value">{{ emailMasked }}</span>
+              </div>
+              <div class="email-actions">
+                <b-button size="is-small" @click="showChangeEmail = true" v-if="!showChangeEmail">
+                  Change
+                </b-button>
+                <b-button
+                  size="is-small"
+                  type="is-danger"
+                  outlined
+                  @click="removeEmail"
+                  :loading="emailSaving"
+                  v-if="!showChangeEmail"
+                >
+                  Remove
+                </b-button>
+              </div>
+              <div v-if="showChangeEmail" class="email-change-form">
+                <b-field>
+                  <b-input
+                    v-model="newEmail"
+                    placeholder="Enter new email"
+                    type="email"
+                    icon="envelope"
+                    size="is-small"
+                  />
+                </b-field>
+                <div class="email-change-actions">
+                  <b-button size="is-small" type="is-primary" @click="changeEmail" :loading="emailSaving">
+                    Save
+                  </b-button>
+                  <b-button size="is-small" @click="showChangeEmail = false; newEmail = ''">
+                    Cancel
+                  </b-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
             <p class="section-title">Appearance</p>
             <p class="section-hint">Choose your preferred theme.</p>
             <div class="theme-selector">
@@ -236,6 +303,14 @@ const localKanbanEnabled = ref(false);
 const localKanbanColumns = ref<string[]>(['todo', 'done']);
 const localWeekStartMonday = ref(false);
 
+// Email management
+const hasEmail = ref(false);
+const emailMasked = ref('');
+const newEmail = ref('');
+const emailLoading = ref(false);
+const emailSaving = ref(false);
+const showChangeEmail = ref(false);
+
 const themeOptions = [
   { value: 'light', label: 'Light', icon: 'fas fa-sun' },
   { value: 'dark', label: 'Dark', icon: 'fas fa-moon' },
@@ -270,7 +345,109 @@ onMounted(() => {
 
   fetchCalendarUrl();
   fetchExternalCalendars();
+  fetchUserProfile();
 });
+
+const fetchUserProfile = async () => {
+  emailLoading.value = true;
+  try {
+    const res = await Requests.get('/profile');
+    hasEmail.value = res.data?.has_email || false;
+    emailMasked.value = res.data?.email_masked || '';
+  } catch (_e) {
+    hasEmail.value = false;
+    emailMasked.value = '';
+  } finally {
+    emailLoading.value = false;
+  }
+};
+
+const addEmail = async () => {
+  if (!newEmail.value || !newEmail.value.includes('@')) {
+    buefy?.toast.open({
+      message: 'Please enter a valid email address',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  emailSaving.value = true;
+  try {
+    await Requests.put('/settings/email', { email: newEmail.value });
+    await fetchUserProfile();
+    newEmail.value = '';
+    buefy?.toast.open({
+      message: 'Email added successfully',
+      type: 'is-success',
+      duration: 2000,
+    });
+  } catch (e: unknown) {
+    const error = e as { response?: { data?: { error?: string } } };
+    buefy?.toast.open({
+      message: error?.response?.data?.error || 'Unable to add email',
+      type: 'is-danger',
+      duration: 3000,
+    });
+  } finally {
+    emailSaving.value = false;
+  }
+};
+
+const changeEmail = async () => {
+  if (!newEmail.value || !newEmail.value.includes('@')) {
+    buefy?.toast.open({
+      message: 'Please enter a valid email address',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  emailSaving.value = true;
+  try {
+    await Requests.put('/settings/email', { email: newEmail.value });
+    await fetchUserProfile();
+    newEmail.value = '';
+    showChangeEmail.value = false;
+    buefy?.toast.open({
+      message: 'Email updated successfully',
+      type: 'is-success',
+      duration: 2000,
+    });
+  } catch (e: unknown) {
+    const error = e as { response?: { data?: { error?: string } } };
+    buefy?.toast.open({
+      message: error?.response?.data?.error || 'Unable to update email',
+      type: 'is-danger',
+      duration: 3000,
+    });
+  } finally {
+    emailSaving.value = false;
+  }
+};
+
+const removeEmail = async () => {
+  emailSaving.value = true;
+  try {
+    await Requests.put('/settings/email', { email: null });
+    hasEmail.value = false;
+    emailMasked.value = '';
+    buefy?.toast.open({
+      message: 'Email removed',
+      type: 'is-success',
+      duration: 2000,
+    });
+  } catch (_e) {
+    buefy?.toast.open({
+      message: 'Unable to remove email',
+      type: 'is-danger',
+      duration: 3000,
+    });
+  } finally {
+    emailSaving.value = false;
+  }
+};
 
 const onAutoSaveChange = (value: boolean) => {
   // Update the setting immediately
@@ -898,5 +1075,73 @@ const close = () => {
   border-radius: 4px;
   font-family: 'Fira Code', monospace;
   font-size: 0.9em;
+}
+
+/* Email management */
+.email-loading {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.email-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.email-info i {
+  color: var(--text-link);
+  margin-top: 2px;
+}
+
+.email-display-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.email-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.email-value {
+  color: var(--text-primary);
+  font-family: 'Fira Code', monospace;
+  font-size: 14px;
+}
+
+.email-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.email-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.email-change-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>

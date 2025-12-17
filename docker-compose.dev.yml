@@ -34,12 +34,10 @@ services:
       - /app/client/node_modules
       - /app/__pycache__
       - /app/app/__pycache__
+    env_file:
+      - ./.env
     environment:
-      # These will be generated automatically if not provided
-      # Uncomment and set for production-like development
-      # API_SECRET_KEY: "dev-secret-key-change-in-production"
-      # DB_ENCRYPTION_KEY: "dev-encryption-key-must-be-multiple-of-16-chars"
-
+      # These override values from .env if needed
       # Development mode flags
       NODE_ENV: development
 

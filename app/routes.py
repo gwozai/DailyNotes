@@ -22,6 +22,7 @@ from app import (
     create_access_token,
     get_jwt_identity,
     verify_jwt_in_request,
+    email_service,
 )
 from app.models import (
     User,
@@ -34,6 +35,14 @@ from app.models import (
     aes_encrypt_old,
     parse_tasks_with_columns,
     get_task_column,
+)
+from app.auth_tokens import (
+    check_rate_limit,
+    record_rate_limit,
+    create_auth_token,
+    validate_token,
+    invalidate_token,
+    get_user_by_email,
 )
 from quart import (
     render_template,
@@ -692,6 +701,7 @@ async def sign_up():
     req = await request.get_json()
     username = req.get("username")
     password = req.get("password")
+    email = req.get("email")  # Optional
 
     if not username or not password:
         abort(400)
@@ -699,6 +709,18 @@ async def sign_up():
     password_hash = argon2.generate_password_hash(password)
 
     new_user = User(username=username.lower(), password_hash=password_hash)
+
+    # Set email if provided and valid
+    if email and "@" in email and "." in email:
+        # Check if email is already in use
+        existing_user = get_user_by_email(email)
+        if existing_user:
+            return (
+                jsonify(error="This email is already associated with another account"),
+                409,
+            )
+        new_user.email = email.strip().lower()
+
     db.session.add(new_user)
     db.session.commit()
 
@@ -724,6 +746,275 @@ async def login():
         return jsonify({"msg": "Bad username or password"}), 401
 
     access_token = create_access_token(identity=username)
+    return jsonify(access_token=access_token), 200
+
+
+@app.route("/api/profile", methods=["GET"])
+@jwt_required()
+async def get_profile():
+    """
+    Get current user's profile information.
+
+    Returns:
+        - username: User's username
+        - has_email: Whether user has an email set
+        - email_masked: Masked email (e.g., "j***@example.com") or null
+    """
+    username = get_jwt_identity()
+
+    if not username:
+        abort(401)
+
+    user = User.query.filter_by(username=username.lower()).first()
+
+    if not user:
+        abort(400)
+
+    # Mask email for privacy (show first char and domain)
+    email_masked = None
+    if user.email:
+        parts = user.email.split("@")
+        if len(parts) == 2:
+            local = parts[0]
+            domain = parts[1]
+            if len(local) > 1:
+                email_masked = f"{local[0]}***@{domain}"
+            else:
+                email_masked = f"***@{domain}"
+
+    return (
+        jsonify(
+            username=user.username,
+            has_email=bool(user.email),
+            email_masked=email_masked,
+        ),
+        200,
+    )
+
+
+@app.route("/api/settings/email", methods=["PUT"])
+@jwt_required()
+async def update_email():
+    """
+    Update user's email address.
+
+    Request body:
+        - email: New email address (or null to remove)
+
+    Returns:
+        - 200: Email updated successfully
+        - 400: Invalid email format
+        - 409: Email already in use by another account
+    """
+    req = await request.get_json()
+    new_email = req.get("email")
+
+    username = get_jwt_identity()
+
+    if not username:
+        abort(401)
+
+    user = User.query.filter_by(username=username.lower()).first()
+
+    if not user:
+        abort(400)
+
+    # Handle email removal
+    if new_email is None or new_email == "":
+        user.email = None
+        db.session.add(user)
+        db.session.commit()
+        return jsonify(message="Email removed"), 200
+
+    # Basic email validation
+    new_email = new_email.strip().lower()
+    if "@" not in new_email or "." not in new_email:
+        return jsonify(error="Invalid email format"), 400
+
+    # Check if email is already in use by another user
+    existing_user = get_user_by_email(new_email)
+    if existing_user and existing_user.uuid != user.uuid:
+        return (
+            jsonify(error="This email is already associated with another account"),
+            409,
+        )
+
+    user.email = new_email
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify(message="Email updated successfully"), 200
+
+
+@app.route("/api/forgot-password", methods=["POST"])
+async def forgot_password():
+    """
+    Request a password reset email.
+
+    Request body:
+        - email: User's email address
+
+    Returns:
+        - 200: Always returns success (prevents email enumeration)
+        - 429: Rate limit exceeded
+    """
+    req = await request.get_json()
+    email = req.get("email", "").strip().lower()
+
+    if not email:
+        # Return success even for empty email to prevent enumeration
+        return (
+            jsonify(
+                message="If an account exists with that email, you will receive a password reset link."
+            ),
+            200,
+        )
+
+    # Check rate limit
+    if not check_rate_limit(email, "password_reset"):
+        return jsonify(error="Too many requests. Please try again later."), 429
+
+    # Record the attempt for rate limiting
+    record_rate_limit(email, "password_reset")
+
+    # Find user by email
+    user = get_user_by_email(email)
+
+    if user:
+        # Create token and send email
+        token = create_auth_token(user, "password_reset")
+        await email_service.send_password_reset(email, token)
+
+    # Always return success to prevent email enumeration
+    return (
+        jsonify(
+            message="If an account exists with that email, you will receive a password reset link."
+        ),
+        200,
+    )
+
+
+@app.route("/api/reset-password", methods=["POST"])
+async def reset_password():
+    """
+    Reset password using a valid token.
+
+    Request body:
+        - token: Reset token from email
+        - password: New password
+
+    Returns:
+        - 200: Password successfully reset
+        - 400: Invalid or expired token, or missing password
+    """
+    req = await request.get_json()
+    token = req.get("token", "").strip()
+    new_password = req.get("password", "")
+
+    if not token:
+        return jsonify(error="Invalid or expired reset link"), 400
+
+    if not new_password:
+        return jsonify(error="Password is required"), 400
+
+    if len(new_password) < 4:
+        return jsonify(error="Password must be at least 4 characters"), 400
+
+    # Validate token
+    user = validate_token(token, "password_reset")
+
+    if not user:
+        return jsonify(error="Invalid or expired reset link"), 400
+
+    # Update password
+    user.password_hash = argon2.generate_password_hash(new_password)
+    db.session.add(user)
+    db.session.commit()
+
+    # Invalidate the token
+    invalidate_token(token)
+
+    return jsonify(message="Password reset successfully"), 200
+
+
+@app.route("/api/magic-link", methods=["POST"])
+async def request_magic_link():
+    """
+    Request a magic link login email.
+
+    Request body:
+        - email: User's email address
+
+    Returns:
+        - 200: Always returns success (prevents email enumeration)
+        - 429: Rate limit exceeded
+    """
+    req = await request.get_json()
+    email = req.get("email", "").strip().lower()
+
+    if not email:
+        # Return success even for empty email to prevent enumeration
+        return (
+            jsonify(
+                message="If an account exists with that email, you will receive a sign-in link."
+            ),
+            200,
+        )
+
+    # Check rate limit
+    if not check_rate_limit(email, "magic_link"):
+        return jsonify(error="Too many requests. Please try again later."), 429
+
+    # Record the attempt for rate limiting
+    record_rate_limit(email, "magic_link")
+
+    # Find user by email
+    user = get_user_by_email(email)
+
+    if user:
+        # Create token and send email
+        token = create_auth_token(user, "magic_link")
+        await email_service.send_magic_link(email, token)
+
+    # Always return success to prevent email enumeration
+    return (
+        jsonify(
+            message="If an account exists with that email, you will receive a sign-in link."
+        ),
+        200,
+    )
+
+
+@app.route("/api/magic-link/verify", methods=["POST"])
+async def verify_magic_link():
+    """
+    Authenticate using a magic link token.
+
+    Request body:
+        - token: Magic link token from email
+
+    Returns:
+        - 200: Returns JWT access_token
+        - 400: Invalid or expired token
+    """
+    req = await request.get_json()
+    token = req.get("token", "").strip()
+
+    if not token:
+        return jsonify(error="Invalid or expired link"), 400
+
+    # Validate token
+    user = validate_token(token, "magic_link")
+
+    if not user:
+        return jsonify(error="Invalid or expired link"), 400
+
+    # Invalidate the token (single-use)
+    invalidate_token(token)
+
+    # Create JWT access token
+    access_token = create_access_token(identity=user.username)
+
     return jsonify(access_token=access_token), 200
 
 

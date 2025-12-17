@@ -1,14 +1,42 @@
 <template>
   <div>
-    <div class="msgs">{{errMsg}}</div>
+    <div class="msgs">{{ errMsg }}</div>
     <div class="inputs">
       <b-field :type="usernameErr ? 'is-danger' : ''" :message="usernameErr">
-        <b-input placeholder="Username" size="is-medium" icon="user" v-model="username" @keyup.enter="login"></b-input>
+        <b-input
+          placeholder="Username"
+          size="is-medium"
+          icon="user"
+          v-model="username"
+          @keyup.enter="login"
+        ></b-input>
       </b-field>
       <b-field :type="passwordErr ? 'is-danger' : ''" :message="passwordErr">
-        <b-input placeholder="Password" type="password" password-reveal size="is-medium" icon="key" v-model="password" @keyup.enter="login"></b-input>
+        <b-input
+          placeholder="Password"
+          type="password"
+          password-reveal
+          size="is-medium"
+          icon="key"
+          v-model="password"
+          @keyup.enter="login"
+        ></b-input>
       </b-field>
-      <b-button type="is-primary" size="is-medium" expanded class="mt-20" @click="login" :loading="isLoading">Login</b-button>
+      <b-button
+        type="is-primary"
+        size="is-medium"
+        expanded
+        class="mt-20"
+        @click="login"
+        :loading="isLoading"
+      >
+        Login
+      </b-button>
+      <div class="auth-links mt-20">
+        <span class="alt-button" @click="forgotPassword">Forgot password?</span>
+        <span class="separator">|</span>
+        <span class="alt-button" @click="magicLink">Sign in with email</span>
+      </div>
       <h1 class="mt-20 alt-button" @click="signup" v-if="!hideSignup">Sign Up</h1>
     </div>
   </div>
@@ -40,6 +68,14 @@ const hideSignup = !!process.env.VUE_APP_PREVENT_SIGNUPS;
 
 const signup = () => {
   router.push({ name: 'Sign Up' });
+};
+
+const forgotPassword = () => {
+  router.push({ name: 'Forgot Password' });
+};
+
+const magicLink = () => {
+  router.push({ name: 'Magic Link' });
 };
 
 const login = async () => {
@@ -94,3 +130,15 @@ const login = async () => {
   isLoading.value = false;
 };
 </script>
+
+<style scoped>
+.auth-links {
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-links .separator {
+  margin: 0 10px;
+  color: var(--text-muted, #999);
+}
+</style>
