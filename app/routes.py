@@ -792,6 +792,57 @@ async def get_profile():
     )
 
 
+@app.route("/api/settings/password", methods=["PUT"])
+@jwt_required()
+async def change_password():
+    """
+    Change user's password.
+
+    Request body:
+        - current_password: Current password for verification
+        - new_password: New password to set
+
+    Returns:
+        - 200: Password changed successfully
+        - 400: Missing fields or password too short
+        - 401: Current password is incorrect
+    """
+    req = await request.get_json()
+    current_password = req.get("current_password", "")
+    new_password = req.get("new_password", "")
+
+    username = get_jwt_identity()
+
+    if not username:
+        abort(401)
+
+    user = User.query.filter_by(username=username.lower()).first()
+
+    if not user:
+        abort(400)
+
+    # Validate inputs
+    if not current_password:
+        return jsonify(error="Current password is required"), 400
+
+    if not new_password:
+        return jsonify(error="New password is required"), 400
+
+    if len(new_password) < 4:
+        return jsonify(error="Password must be at least 4 characters"), 400
+
+    # Verify current password
+    if not argon2.check_password_hash(user.password_hash, current_password):
+        return jsonify(error="Current password is incorrect"), 401
+
+    # Update password
+    user.password_hash = argon2.generate_password_hash(new_password)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify(message="Password changed successfully"), 200
+
+
 @app.route("/api/settings/email", methods=["PUT"])
 @jwt_required()
 async def update_email():
