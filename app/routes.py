@@ -1982,10 +1982,12 @@ async def export():
     # Create zip file in memory to avoid race condition with async file streaming
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        notes = user.notes
+        notes = user.notes.all()
         for note in notes:
             ret_note = note.serialize
-            zf.writestr(ret_note["title"] + ".md", ret_note["data"])
+            # Sanitize filename to handle special characters (/, \, :, etc.)
+            filename = secure_filename(ret_note["title"]) or ret_note["uuid"]
+            zf.writestr(filename + ".md", ret_note["data"])
 
     zip_buffer.seek(0)
 
