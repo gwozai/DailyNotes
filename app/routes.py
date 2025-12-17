@@ -1,3 +1,4 @@
+import io
 import os
 import zipfile
 import re
@@ -1978,18 +1979,21 @@ async def export():
     if not user:
         abort(400)
 
-    zip_location = app.config["EXPORT_FILE"]
-    zf = zipfile.ZipFile(zip_location, mode="w")
-    os.chmod(zip_location, 0o755)
-    notes = user.notes
-    for note in notes:
-        ret_note = note.serialize
-        zf.writestr(ret_note["title"] + ".md", ret_note["data"], zipfile.ZIP_DEFLATED)
-    zf.close()
+    # Create zip file in memory to avoid race condition with async file streaming
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        notes = user.notes
+        for note in notes:
+            ret_note = note.serialize
+            zf.writestr(ret_note["title"] + ".md", ret_note["data"])
 
-    rval = await send_file(zip_location, as_attachment=True)
-    os.remove(zip_location)
-    return rval
+    zip_buffer.seek(0)
+
+    return Response(
+        zip_buffer.getvalue(),
+        mimetype="application/zip",
+        headers={"Content-Disposition": "attachment; filename=export.zip"},
+    )
 
 
 @app.route("/api/import", methods=["POST"])
