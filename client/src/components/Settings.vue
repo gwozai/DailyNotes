@@ -91,6 +91,61 @@
                 </div>
               </div>
             </div>
+
+            <div class="password-section">
+              <div class="password-header">
+                <span class="password-label">Password</span>
+                <b-button
+                  v-if="!showChangePassword"
+                  size="is-small"
+                  @click="showChangePassword = true"
+                >
+                  Change Password
+                </b-button>
+              </div>
+              <div v-if="showChangePassword" class="password-change-form">
+                <b-field label="Current password">
+                  <b-input
+                    v-model="currentPassword"
+                    type="password"
+                    placeholder="Enter current password"
+                    size="is-small"
+                    password-reveal
+                  />
+                </b-field>
+                <b-field label="New password">
+                  <b-input
+                    v-model="newPassword"
+                    type="password"
+                    placeholder="Enter new password"
+                    size="is-small"
+                    password-reveal
+                  />
+                </b-field>
+                <b-field label="Confirm new password">
+                  <b-input
+                    v-model="confirmPassword"
+                    type="password"
+                    placeholder="Confirm new password"
+                    size="is-small"
+                    password-reveal
+                  />
+                </b-field>
+                <div class="password-change-actions">
+                  <b-button
+                    size="is-small"
+                    type="is-primary"
+                    @click="changePassword"
+                    :loading="passwordSaving"
+                  >
+                    Update Password
+                  </b-button>
+                  <b-button size="is-small" @click="cancelChangePassword">
+                    Cancel
+                  </b-button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="settings-card">
@@ -311,6 +366,13 @@ const emailLoading = ref(false);
 const emailSaving = ref(false);
 const showChangeEmail = ref(false);
 
+// Password change
+const showChangePassword = ref(false);
+const currentPassword = ref('');
+const newPassword = ref('');
+const confirmPassword = ref('');
+const passwordSaving = ref(false);
+
 const themeOptions = [
   { value: 'light', label: 'Light', icon: 'fas fa-sun' },
   { value: 'dark', label: 'Dark', icon: 'fas fa-moon' },
@@ -447,6 +509,79 @@ const removeEmail = async () => {
   } finally {
     emailSaving.value = false;
   }
+};
+
+const changePassword = async () => {
+  // Validate inputs
+  if (!currentPassword.value) {
+    buefy?.toast.open({
+      message: 'Please enter your current password',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  if (!newPassword.value) {
+    buefy?.toast.open({
+      message: 'Please enter a new password',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  if (newPassword.value.length < 4) {
+    buefy?.toast.open({
+      message: 'Password must be at least 4 characters',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  if (newPassword.value !== confirmPassword.value) {
+    buefy?.toast.open({
+      message: 'New passwords do not match',
+      type: 'is-danger',
+      duration: 3000,
+    });
+    return;
+  }
+
+  passwordSaving.value = true;
+  try {
+    await Requests.put('/settings/password', {
+      current_password: currentPassword.value,
+      new_password: newPassword.value,
+    });
+    // Clear form and hide it
+    currentPassword.value = '';
+    newPassword.value = '';
+    confirmPassword.value = '';
+    showChangePassword.value = false;
+    buefy?.toast.open({
+      message: 'Password changed successfully',
+      type: 'is-success',
+      duration: 2000,
+    });
+  } catch (e: unknown) {
+    const error = e as { response?: { data?: { error?: string } } };
+    buefy?.toast.open({
+      message: error?.response?.data?.error || 'Unable to change password',
+      type: 'is-danger',
+      duration: 3000,
+    });
+  } finally {
+    passwordSaving.value = false;
+  }
+};
+
+const cancelChangePassword = () => {
+  currentPassword.value = '';
+  newPassword.value = '';
+  confirmPassword.value = '';
+  showChangePassword.value = false;
 };
 
 const onAutoSaveChange = (value: boolean) => {
@@ -1143,5 +1278,38 @@ const close = () => {
 .email-change-actions {
   display: flex;
   gap: 8px;
+}
+
+/* Password management */
+.password-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.password-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.password-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.password-change-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
 }
 </style>
