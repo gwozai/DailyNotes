@@ -40,6 +40,11 @@ onMounted(() => {
 
 const changeDate = async (value: Date | null) => {
   if (value) {
+    // Blur any focused element to prevent aria-hidden warning from Buefy datepicker
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     const previousRoute = route.params.id;
     const previousDate = sidebar.date;
 

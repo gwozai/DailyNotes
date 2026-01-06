@@ -314,6 +314,49 @@
           </div>
         </div>
 
+        <div class="settings-card templates-card">
+          <p class="section-title">Templates</p>
+          <p class="section-hint">Set default content for new notes.</p>
+
+          <div class="template-section">
+            <div class="template-header">
+              <span class="template-label">Daily note template</span>
+              <b-button size="is-small" @click="saveDailyTemplate">Save</b-button>
+            </div>
+            <b-field>
+              <b-input
+                v-model="localDailyTemplate"
+                type="textarea"
+                placeholder="---&#10;tags: &#10;projects: &#10;---&#10;&#10;"
+                rows="5"
+                class="template-textarea"
+              />
+            </b-field>
+            <p class="setting-hint">
+              Template used when creating a new daily note. Leave empty to use the default.
+            </p>
+          </div>
+
+          <div class="template-section">
+            <div class="template-header">
+              <span class="template-label">Other note template</span>
+              <b-button size="is-small" @click="saveNoteTemplate">Save</b-button>
+            </div>
+            <b-field>
+              <b-input
+                v-model="localNoteTemplate"
+                type="textarea"
+                placeholder="---&#10;title: &#10;tags: &#10;projects: &#10;---&#10;&#10;"
+                rows="5"
+                class="template-textarea"
+              />
+            </b-field>
+            <p class="setting-hint">
+              Template used when creating a new note (not daily). Leave empty to use the default.
+            </p>
+          </div>
+        </div>
+
         <div class="settings-card about-card">
           <p class="section-title">About</p>
           <div class="about-info">
@@ -357,6 +400,8 @@ const localDirection = ref<DirectionPreference>('ltr');
 const localKanbanEnabled = ref(false);
 const localKanbanColumns = ref<string[]>(['todo', 'done']);
 const localWeekStartMonday = ref(false);
+const localDailyTemplate = ref('');
+const localNoteTemplate = ref('');
 
 // Email management
 const hasEmail = ref(false);
@@ -404,6 +449,8 @@ onMounted(() => {
   localKanbanEnabled.value = sidebar.kanbanEnabled;
   localKanbanColumns.value = [...sidebar.kanbanColumns];
   localWeekStartMonday.value = sidebar.weekStartMonday;
+  localDailyTemplate.value = sidebar.dailyTemplate || '';
+  localNoteTemplate.value = sidebar.noteTemplate || '';
 
   fetchCalendarUrl();
   fetchExternalCalendars();
@@ -688,6 +735,26 @@ const saveColumns = () => {
       duration: 1500,
     });
   }
+};
+
+const saveDailyTemplate = () => {
+  const template = localDailyTemplate.value.trim() || null;
+  sidebar.updateDailyTemplate(template);
+  buefy?.toast.open({
+    message: template ? 'Daily template saved' : 'Daily template reset to default',
+    type: 'is-success',
+    duration: 2000,
+  });
+};
+
+const saveNoteTemplate = () => {
+  const template = localNoteTemplate.value.trim() || null;
+  sidebar.updateNoteTemplate(template);
+  buefy?.toast.open({
+    message: template ? 'Note template saved' : 'Note template reset to default',
+    type: 'is-success',
+    duration: 2000,
+  });
 };
 
 const fetchCalendarUrl = async () => {
@@ -1311,5 +1378,36 @@ const close = () => {
   display: flex;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* Templates section */
+.templates-card {
+  margin-top: 16px;
+}
+
+.template-section {
+  margin-bottom: 20px;
+}
+
+.template-section:last-child {
+  margin-bottom: 0;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.template-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.template-textarea :deep(.textarea) {
+  font-family: 'Fira Code', monospace;
+  font-size: 13px;
+  resize: vertical;
 }
 </style>

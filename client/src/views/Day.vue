@@ -126,7 +126,7 @@ const getDayData = async () => {
   try {
     const res = await NoteService.getDate(route.params.id as string);
     day.value = res;
-    text.value = day.value.data || '';
+    text.value = day.value.data || sidebar.dailyTemplate || newDay;
 
     // Set current note ID for fold state (use date as identifier for daily notes)
     currentNoteId = `day-${route.params.id}`;
@@ -256,7 +256,8 @@ const deleteNote = async () => {
 };
 
 const setDefaultText = () => {
-  text.value = newDay;
+  // Use user's custom template if set, otherwise use the default
+  text.value = sidebar.dailyTemplate || newDay;
 
   day.value = {
     data: text.value,
@@ -522,6 +523,21 @@ watch(
 
     headerOptions.title = format(date, 'EEE. MMM dd, yyyy');
     title.value = headerOptions.title;
+  }
+);
+
+// Watch for dailyTemplate to load (handles race condition on initial page load)
+watch(
+  () => sidebar.dailyTemplate,
+  (newTemplate) => {
+    // Only update if this is a new note (no uuid) and user hasn't made changes
+    if (!day.value.uuid && !unsavedChanges.value && newTemplate) {
+      // Only update if current text is empty or the default template
+      if (!text.value || text.value === newDay) {
+        text.value = newTemplate;
+        day.value.data = newTemplate;
+      }
+    }
   }
 );
 

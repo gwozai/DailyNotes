@@ -52,19 +52,15 @@ class SSEService {
    * Will automatically reconnect on disconnection.
    */
   connect(): void {
-    console.log('SSE: connect() called');
     if (this.abortController || this.isConnecting) {
-      console.log('SSE: Already connected or connecting, skipping');
       return;
     }
 
     const token = getToken();
     if (!token) {
-      console.warn('SSE: No auth token, skipping connection');
       return;
     }
 
-    console.log('SSE: Initiating connection...');
     this.isConnecting = true;
 
     // For SSE, we need to bypass the webpack-dev-server proxy which buffers responses.
@@ -91,7 +87,6 @@ class SSEService {
       // Create abort controller for this connection
       this.abortController = new AbortController();
 
-      console.log(`SSE: Fetching ${baseUrl}/events/stream`);
       const response = await fetch(`${baseUrl}/events/stream`, {
         method: 'GET',
         headers: {
@@ -101,7 +96,6 @@ class SSEService {
         signal: this.abortController.signal,
       });
 
-      console.log(`SSE: Response status ${response.status}`);
       if (!response.ok) {
         throw new Error(`SSE connection failed: ${response.status}`);
       }
@@ -114,8 +108,6 @@ class SSEService {
       this.reconnectAttempts = 0;
       this.reconnectDelay = 1000;
 
-      console.log('SSE: Connected');
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -127,7 +119,6 @@ class SSEService {
             const { done, value } = await reader.read();
 
             if (done) {
-              console.log('SSE: Stream ended');
               this.handleDisconnect();
               return;
             }
@@ -156,15 +147,13 @@ class SSEService {
               }
             }
           }
-        } catch (error) {
-          console.error('SSE: Stream error', error);
+        } catch (_error) {
           this.handleDisconnect();
         }
       };
 
       processStream();
-    } catch (error) {
-      console.error('SSE: Connection error', error);
+    } catch (_error) {
       this.isConnecting = false;
       this.handleDisconnect();
     }
@@ -192,11 +181,11 @@ class SSEService {
           eventHub.emit('sseTaskColumnUpdated', data);
           break;
         case 'connected':
-          console.log('SSE: Server acknowledged connection');
+          // Server acknowledged connection
           break;
       }
-    } catch (error) {
-      console.error('SSE: Failed to parse event data', error, dataStr);
+    } catch (_error) {
+      // Failed to parse event data
     }
   }
 
@@ -207,7 +196,6 @@ class SSEService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * 2 ** (this.reconnectAttempts - 1);
-      console.log(`SSE: Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
       setTimeout(() => {
         const token = getToken();
@@ -215,8 +203,6 @@ class SSEService {
           this.connect();
         }
       }, delay);
-    } else {
-      console.warn('SSE: Max reconnect attempts reached');
     }
   }
 
@@ -229,7 +215,6 @@ class SSEService {
       this.abortController = null;
     }
     this.reconnectAttempts = this.maxReconnectAttempts; // Prevent auto-reconnect
-    console.log('SSE: Disconnected');
   }
 
   /**

@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import { useHead } from '@unhead/vue';
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { onBeforeRouteLeave, useRouter } from 'vue-router';
 import Editor from '@/components/Editor.vue';
 import Header from '@/components/Header.vue';
@@ -108,10 +108,26 @@ onBeforeRouteLeave((_to, _from, next) => {
   }
 });
 
+// Watch for noteTemplate to load (handles race condition on initial page load)
+watch(
+  () => sidebar.noteTemplate,
+  (newTemplate) => {
+    // Only update if user hasn't made changes and template is available
+    if (!unsavedChanges.value && newTemplate) {
+      // Only update if current text is empty or the default template
+      if (!text.value || text.value === newNote) {
+        text.value = newTemplate;
+        note.value.data = newTemplate;
+      }
+    }
+  }
+);
+
 onMounted(() => {
   window.addEventListener('beforeunload', unsavedAlert);
 
-  text.value = newNote;
+  // Use user's custom template if set, otherwise use the default
+  text.value = sidebar.noteTemplate || newNote;
 
   note.value = {
     data: text.value,

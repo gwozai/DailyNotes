@@ -1549,9 +1549,11 @@ async def get_date():
     if not user:
         abort(400)
 
+    # Use user's custom daily template if set, otherwise use default
+    default_template = user.daily_template or "---\ntags: \nprojects: \n---\n\n"
     ret_note = {
         "title": date,
-        "data": "---\ntags: \nprojects: \n---\n\n",
+        "data": default_template,
         "is_date": True,
         "user_id": user.uuid,
     }
@@ -1636,6 +1638,8 @@ async def sidebar_data():
             kanban_enabled=kanban_enabled,
             kanban_columns=kanban_columns,
             week_start_monday=week_start_monday,
+            daily_template=user.daily_template,
+            note_template=user.note_template,
         ),
         200,
     )
@@ -1720,6 +1724,8 @@ async def get_settings():
             kanban_enabled=user.kanban_enabled or False,
             kanban_columns=kanban_columns,
             week_start_monday=user.week_start_monday or False,
+            daily_template=user.daily_template,
+            note_template=user.note_template,
         ),
         200,
     )
@@ -1764,6 +1770,12 @@ async def update_settings():
     if "week_start_monday" in req:
         user.week_start_monday = req["week_start_monday"]
 
+    if "daily_template" in req:
+        user.daily_template = req["daily_template"] or None
+
+    if "note_template" in req:
+        user.note_template = req["note_template"] or None
+
     db.session.add(user)
     db.session.flush()
     db.session.commit()
@@ -1783,6 +1795,8 @@ async def update_settings():
             kanban_enabled=user.kanban_enabled or False,
             kanban_columns=kanban_columns,
             week_start_monday=user.week_start_monday or False,
+            daily_template=user.daily_template,
+            note_template=user.note_template,
         ),
         200,
     )
