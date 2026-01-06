@@ -76,6 +76,8 @@ class SidebarSerivce {
   public kanbanEnabled: boolean = false;
   public kanbanColumns: string[] = ['todo', 'done'];
   public weekStartMonday: boolean = false;
+  public dailyTemplate: string | null = null;
+  public noteTemplate: string | null = null;
   public currentNoteId: string | null = null;
   public date: Date | null = null;
   public sidebarLoading: boolean = false;
@@ -197,6 +199,8 @@ class SidebarSerivce {
         this.kanbanEnabled = res.data.kanban_enabled || false;
         this.kanbanColumns = res.data.kanban_columns || ['todo', 'done'];
         this.weekStartMonday = res.data.week_start_monday || false;
+        this.dailyTemplate = res.data.daily_template || null;
+        this.noteTemplate = res.data.note_template || null;
       }
 
       if (this.selectedSearch.length && this.searchString.length) {
@@ -285,6 +289,20 @@ class SidebarSerivce {
     try {
       await Requests.put('/settings', { kanban_columns: columns });
       this.kanbanColumns = columns;
+    } catch (_e) {}
+  }
+
+  public async updateDailyTemplate(template: string | null) {
+    try {
+      await Requests.put('/settings', { daily_template: template });
+      this.dailyTemplate = template;
+    } catch (_e) {}
+  }
+
+  public async updateNoteTemplate(template: string | null) {
+    try {
+      await Requests.put('/settings', { note_template: template });
+      this.noteTemplate = template;
     } catch (_e) {}
   }
 

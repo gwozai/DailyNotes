@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     LargeBinary,
     ForeignKey,
+    Text,
     event,
     text,
 )
@@ -222,6 +223,8 @@ class User(Base):
     kanban_columns = Column(String(512), nullable=True, default='["todo", "done"]')
     week_start_monday = Column(Boolean, nullable=True, default=False)
     email_encrypted = Column("email", LargeBinary, nullable=True)
+    daily_template = Column(Text, nullable=True)  # Template for daily notes
+    note_template = Column(Text, nullable=True)  # Template for regular notes
     notes = relationship("Note", lazy="dynamic", cascade="all, delete, delete-orphan")
     meta = relationship("Meta", lazy="dynamic", cascade="all, delete, delete-orphan")
     external_calendars = relationship(
