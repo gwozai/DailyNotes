@@ -4,10 +4,13 @@ import zipfile
 import re
 import time
 import asyncio
+import logging
 from uuid import uuid4
 import frontmatter
 import datetime
 import httpx
+
+logger = logging.getLogger(__name__)
 from dateutil import rrule, tz
 from urllib.parse import urlparse, parse_qs, quote
 
@@ -2379,7 +2382,13 @@ async def sse_stream():
     if not username:
         abort(401)
 
-    user = User.query.filter_by(username=username.lower()).first()
+    try:
+        user = User.query.filter_by(username=username.lower()).first()
+    except Exception as e:
+        # Rollback any failed transaction state before aborting
+        logger.error(f"Database error in SSE stream: {e}")
+        db.session.rollback()
+        abort(500)
 
     if not user:
         abort(400)

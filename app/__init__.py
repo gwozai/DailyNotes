@@ -60,6 +60,9 @@ db = DatabaseWrapper(engine, db_session, Base)
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     """Remove the database session at the end of each request."""
+    if exception:
+        # Rollback the session if there was an exception to clear the failed state
+        db_session.rollback()
     db_session.remove()
 
 
